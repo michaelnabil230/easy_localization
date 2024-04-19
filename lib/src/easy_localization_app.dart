@@ -153,11 +153,8 @@ class _EasyLocalizationState extends State<EasyLocalization> {
       useOnlyLangCode: widget.useOnlyLangCode,
       useFallbackTranslations: widget.useFallbackTranslations,
       path: widget.path,
-      onLoadError: (FlutterError e) {
-        setState(() {
-          translationsLoadError = e;
-        });
-      },
+      onLoadError: (FlutterError e) =>
+          setState(() => translationsLoadError = e),
     );
     // causes localization to rebuild with new language
     localizationController!.addListener(() {
@@ -219,9 +216,12 @@ class _EasyLocalizationProvider extends InheritedWidget {
 
   // _EasyLocalizationDelegate get delegate => parent.delegate;
 
-  _EasyLocalizationProvider(this.parent, this._localeState,
-      {Key? key, required this.delegate})
-      : currentLocale = _localeState.locale,
+  _EasyLocalizationProvider(
+    this.parent,
+    this._localeState, {
+    Key? key,
+    required this.delegate,
+  })  : currentLocale = _localeState.locale,
         super(key: key, child: parent.child) {
     EasyLocalization.logger.debug('Init provider');
   }
@@ -269,8 +269,10 @@ class _EasyLocalizationDelegate extends LocalizationsDelegate<Localization> {
   ///  * use only the lang code to generate i18n file path like en.json or ar.json
   // final bool useOnlyLangCode;
 
-  _EasyLocalizationDelegate(
-      {this.localizationController, this.supportedLocales}) {
+  _EasyLocalizationDelegate({
+    this.localizationController,
+    this.supportedLocales,
+  }) {
     EasyLocalization.logger.debug('Init Localization Delegate');
   }
 
@@ -280,13 +282,17 @@ class _EasyLocalizationDelegate extends LocalizationsDelegate<Localization> {
   @override
   Future<Localization> load(Locale value) async {
     EasyLocalization.logger.debug('Load Localization Delegate');
-    if (localizationController!.translations == null) {
+
+    if (localizationController!.translations.isEmpty) {
       await localizationController!.loadTranslations();
     }
 
-    Localization.load(value,
-        translations: localizationController!.translations,
-        fallbackTranslations: localizationController!.fallbackTranslations);
+    Localization.load(
+      value,
+      fallbackTranslations: localizationController!.fallbackTranslations,
+      translations: localizationController!.translations,
+    );
+
     return Future.value(Localization.instance);
   }
 

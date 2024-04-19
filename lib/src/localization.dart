@@ -5,14 +5,20 @@ import 'plural_rules.dart';
 import 'translations.dart';
 
 class Localization {
-  Translations? _translations, _fallbackTranslations;
+  Map<Locale, Translations>? _translations;
+
+  Translations? _fallbackTranslations;
+
   late Locale _locale;
 
   final RegExp _replaceArgRegex = RegExp('{}');
+
   final RegExp _linkKeyMatcher =
       RegExp(r'(?:@(?:\.[a-z]+)?:(?:[\w\-_|.]+|\([\w\-_|.]+\)))');
+
   final RegExp _linkKeyPrefixMatcher = RegExp(r'^@(?:\.([a-z]+))?:');
   final RegExp _bracketsMatcher = RegExp('[()]');
+
   final _modifiers = <String, String Function(String?)>{
     'upper': (String? val) => val!.toUpperCase(),
     'lower': (String? val) => val!.toLowerCase(),
@@ -22,19 +28,22 @@ class Localization {
   Localization();
 
   static Localization? _instance;
-  static Localization get instance => _instance ?? (_instance = Localization());
+
+  static Localization get instance => _instance ??= Localization();
+
   static Localization? of(BuildContext context) =>
       Localizations.of<Localization>(context, Localization);
 
   static bool load(
     Locale locale, {
-    Translations? translations,
+    Map<Locale, Translations>? translations,
     Translations? fallbackTranslations,
   }) {
     instance._locale = locale;
     instance._translations = translations;
     instance._fallbackTranslations = fallbackTranslations;
-    return translations == null ? false : true;
+
+    return translations != null;
   }
 
   String tr(
@@ -42,14 +51,15 @@ class Localization {
     List<String>? args,
     Map<String, String>? namedArgs,
     String? gender,
+    Locale? locale,
   }) {
-    late String res;
-
-    if (gender != null) {
-      res = _gender(key, gender: gender);
-    } else {
-      res = _resolve(key);
-    }
+    late String res = gender == null
+        ? _resolve(key, locale: locale)
+        : _gender(
+            key,
+            gender: gender,
+            locale: locale,
+          );
 
     res = _replaceLinks(res);
 
@@ -58,10 +68,9 @@ class Localization {
     return _replaceArgs(res, args);
   }
 
-  String _replaceLinks(String res, {bool logging = true}) {
+  String _replaceLinks(String result, {bool logging = true}) {
     // TODO: add recursion detection and a resolve stack.
-    final matches = _linkKeyMatcher.allMatches(res);
-    var result = res;
+    final matches = _linkKeyMatcher.allMatches(result);
 
     for (final match in matches) {
       final link = match[0]!;
@@ -73,7 +82,7 @@ class Localization {
       final linkPlaceholder =
           link.replaceAll(linkPrefix, '').replaceAll(_bracketsMatcher, '');
 
-      var translated = _resolve(linkPlaceholder);
+      String translated = _resolve(linkPlaceholder);
 
       if (formatterName != null) {
         if (_modifiers.containsKey(formatterName)) {
@@ -93,19 +102,23 @@ class Localization {
     return result;
   }
 
-  String _replaceArgs(String res, List<String>? args) {
-    if (args == null || args.isEmpty) return res;
-    for (var str in args) {
-      res = res.replaceFirst(_replaceArgRegex, str);
+  String _replaceArgs(String result, List<String>? args) {
+    if (args == null || args.isEmpty) return result;
+
+    for (final str in args) {
+      result = result.replaceFirst(_replaceArgRegex, str);
     }
-    return res;
+
+    return result;
   }
 
-  String _replaceNamedArgs(String res, Map<String, String>? args) {
-    if (args == null || args.isEmpty) return res;
+  String _replaceNamedArgs(String result, Map<String, String>? args) {
+    if (args == null || args.isEmpty) return result;
+
     args.forEach((String key, String value) =>
-        res = res.replaceAll(RegExp('{$key}'), value));
-    return res;
+        result = result.replaceAll(RegExp('{$key}'), value));
+
+    return result;
   }
 
   static PluralRule? _pluralRule(String? locale, num howMany) {
@@ -114,16 +127,12 @@ class Localization {
   }
 
   static PluralCase _pluralCaseFallback(num value) {
-    switch (value) {
-      case 0:
-        return PluralCase.ZERO;
-      case 1:
-        return PluralCase.ONE;
-      case 2:
-        return PluralCase.TWO;
-      default:
-        return PluralCase.OTHER;
-    }
+    return switch (value) {
+      0 => PluralCase.ZERO,
+      1 => PluralCase.ONE,
+      2 => PluralCase.TWO,
+      _ => PluralCase.OTHER,
+    };
   }
 
   String plural(
@@ -133,84 +142,124 @@ class Localization {
     Map<String, String>? namedArgs,
     String? name,
     NumberFormat? format,
+    Locale? locale,
   }) {
+    Locale keyLocale = locale ?? _locale;
 
-    late String res;
+    final pluralRule = _pluralRule(keyLocale.languageCode, value);
+    final pluralCase =
+        pluralRule != null ? pluralRule() : _pluralCaseFallback(value);
 
-    final pluralRule = _pluralRule(_locale.languageCode, value);
-    final pluralCase = pluralRule != null ? pluralRule() : _pluralCaseFallback(value);
-
-    switch (pluralCase) {
-      case PluralCase.ZERO:
-        res = _resolvePlural(key, 'zero');
-        break;
-      case PluralCase.ONE:
-        res = _resolvePlural(key, 'one');
-        break;
-      case PluralCase.TWO:
-        res = _resolvePlural(key, 'two');
-        break;
-      case PluralCase.FEW:
-        res = _resolvePlural(key, 'few');
-        break;
-      case PluralCase.MANY:
-        res = _resolvePlural(key, 'many');
-        break;
-      case PluralCase.OTHER:
-        res = _resolvePlural(key, 'other');
-        break;
-      default:
-        throw ArgumentError.value(value, 'howMany', 'Invalid plural argument');
-    }
+    late String result = switch (pluralCase) {
+      PluralCase.ZERO => _resolvePlural(
+          key: key,
+          subKey: 'zero',
+          locale: keyLocale,
+        ),
+      PluralCase.ONE => _resolvePlural(
+          key: key,
+          subKey: 'one',
+          locale: keyLocale,
+        ),
+      PluralCase.TWO => _resolvePlural(
+          key: key,
+          subKey: 'two',
+          locale: keyLocale,
+        ),
+      PluralCase.FEW => _resolvePlural(
+          key: key,
+          subKey: 'few',
+          locale: keyLocale,
+        ),
+      PluralCase.MANY => _resolvePlural(
+          key: key,
+          subKey: 'many',
+          locale: keyLocale,
+        ),
+      PluralCase.OTHER => _resolvePlural(
+          key: key,
+          subKey: 'other',
+          locale: keyLocale,
+        ),
+    };
 
     final formattedValue = format == null ? '$value' : format.format(value);
 
     if (name != null) {
       namedArgs = {...?namedArgs, name: formattedValue};
     }
-    res = _replaceNamedArgs(res, namedArgs);
 
-    return _replaceArgs(res, args ?? [formattedValue]);
+    result = _replaceNamedArgs(result, namedArgs);
+
+    return _replaceArgs(result, args ?? [formattedValue]);
   }
 
-  String _gender(String key, {required String gender}) {
-    return _resolve('$key.$gender');
-  }
+  String _gender(
+    String key, {
+    required String gender,
+    Locale? locale,
+  }) =>
+      _resolve('$key.$gender', locale: locale);
 
-  String _resolvePlural(String key, String subKey) {
-    if (subKey == 'other') return _resolve('$key.other');
+  String _resolvePlural({
+    required String key,
+    required String subKey,
+    Locale? locale,
+  }) {
+    if (subKey == 'other') return _resolve('$key.other', locale: locale);
 
-    final tag = '$key.$subKey';
-    var resource = _resolve(tag, logging: false, fallback: _fallbackTranslations != null);
+    String tag = '$key.$subKey';
+    String resource = _resolve(
+      tag,
+      logging: false,
+      fallback: _fallbackTranslations != null,
+      locale: locale,
+    );
+
     if (resource == tag) {
-      resource = _resolve('$key.other');
+      resource = _resolve('$key.other', locale: locale);
     }
+
     return resource;
   }
 
-  String _resolve(String key, {bool logging = true, bool fallback = true}) {
-    var resource = _translations?.get(key);
+  String _resolve(
+    String key, {
+    Locale? locale,
+    bool logging = true,
+    bool fallback = true,
+  }) {
+    String? resource = _getTranslation(locale)?.get(key);
+
     if (resource == null) {
       if (logging) {
         EasyLocalization.logger.warning('Localization key [$key] not found');
       }
+
       if (_fallbackTranslations == null || !fallback) {
         return key;
-      } else {
-        resource = _fallbackTranslations?.get(key);
-        if (resource == null) {
-          if (logging) {
-            EasyLocalization.logger
-                .warning('Fallback localization key [$key] not found');
-          }
-          return key;
+      }
+
+      resource = _fallbackTranslations?.get(key);
+
+      if (resource == null) {
+        if (logging) {
+          EasyLocalization.logger
+              .warning('Fallback localization key [$key] not found');
         }
+        return key;
       }
     }
+
     return resource;
   }
 
-  bool exists(String key){
-    return _translations?.get(key) != null;
+  bool exists(String key, [Locale? locale]) =>
+      _getTranslation(locale)?.get(key) != null;
+
+  Translations? _getTranslation([Locale? locale]) {
+    Locale keyLocale = locale ?? _locale;
+
+    return _translations![keyLocale];
   }
 }

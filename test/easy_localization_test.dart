@@ -64,9 +64,11 @@ void main() {
 
     test('load() with fallback succeeds', () async {
       expect(
-          Localization.load(const Locale('en'),
-              translations: r1.translations,
-              fallbackTranslations: r2.translations),
+          Localization.load(
+            const Locale('en'),
+            translations: r1.translations,
+            fallbackTranslations: r2.fallbackTranslations,
+          ),
           true);
     });
 
@@ -243,9 +245,11 @@ void main() {
 
       setUpAll(() async {
         await r.loadTranslations();
-        Localization.load(const Locale('en'),
-            translations: r.translations,
-            fallbackTranslations: r.fallbackTranslations);
+        Localization.load(
+          const Locale('en'),
+          translations: r.translations,
+          fallbackTranslations: r.fallbackTranslations,
+        );
       });
       test('finds and returns resource', () {
         expect(Localization.instance.tr('test'), 'test');

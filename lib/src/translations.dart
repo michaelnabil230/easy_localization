@@ -1,5 +1,6 @@
 class Translations {
   final Map<String, dynamic>? _translations;
+
   final Map<String?, dynamic> _nestedKeysCache;
 
   Translations(this._translations) : _nestedKeysCache = {};
@@ -13,9 +14,7 @@ class Translations {
 
     /// If we failed to find the key as a nested key, then fall back
     /// to looking it up like normal.
-    returnValue ??= _translations?[key];
-
-    return returnValue;
+    return returnValue ??= _translations?[key];
   }
 
   String? getNested(String key) {

@@ -37,17 +37,27 @@ String tr(
   List<String>? args,
   Map<String, String>? namedArgs,
   String? gender,
+  Locale? locale,
 }) {
   return context != null
-      ? Localization.of(context)!
-          .tr(key, args: args, namedArgs: namedArgs, gender: gender)
-      : Localization.instance
-          .tr(key, args: args, namedArgs: namedArgs, gender: gender);
+      ? Localization.of(context)!.tr(
+          key,
+          args: args,
+          namedArgs: namedArgs,
+          gender: gender,
+          locale: locale,
+        )
+      : Localization.instance.tr(
+          key,
+          args: args,
+          namedArgs: namedArgs,
+          gender: gender,
+          locale: locale,
+        );
 }
 
-bool trExists(String key) {
-  return Localization.instance
-      .exists(key);
+bool trExists(String key, [Locale? locale]) {
+  return Localization.instance.exists(key, locale);
 }
 
 /// {@template plural}
@@ -108,10 +118,25 @@ String plural(
   Map<String, String>? namedArgs,
   String? name,
   NumberFormat? format,
+  Locale? locale,
 }) {
   return context != null
-      ? Localization.of(context)!.plural(key, value,
-          args: args, namedArgs: namedArgs, name: name, format: format)
-      : Localization.instance.plural(key, value,
-          args: args, namedArgs: namedArgs, name: name, format: format);
+      ? Localization.of(context)!.plural(
+          key,
+          value,
+          args: args,
+          namedArgs: namedArgs,
+          name: name,
+          format: format,
+          locale: locale,
+        )
+      : Localization.instance.plural(
+          key,
+          value,
+          args: args,
+          namedArgs: namedArgs,
+          name: name,
+          format: format,
+          locale: locale,
+        );
 }
